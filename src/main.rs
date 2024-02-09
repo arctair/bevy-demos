@@ -1,119 +1,63 @@
+mod quadtree;
+
 use bevy::DefaultPlugins;
-use bevy::prelude::{App, Camera2dBundle, Color, Commands, Component, default, Gizmos, OrthographicProjection, Query, Startup, Update, Vec2};
-use noisy_bevy::simplex_noise_2d;
+use bevy::prelude::{App, Camera2dBundle, Color, Commands, default, Gizmos, OrthographicProjection, Query, Startup, Update, Vec2};
+use crate::quadtree::{QuadTree, QuadTreeBuilder};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, startup_camera)
-        .add_systems(Startup, startup_octree)
-        .add_systems(Update, update_octree)
+        .add_systems(Startup, startup_terrain)
+        .add_systems(Update, update_terrain)
         .run();
 }
 
 fn startup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle {
         projection: OrthographicProjection {
-            scale: 1. / 256.,
+            scale: 1. / 1.,
             ..default()
         },
         ..default()
     });
 }
 
-#[derive(Component)]
-struct Octree {
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-    value: Option<usize>,
-    children: Vec<Octree>,
-}
+fn startup_terrain(mut commands: Commands) {
+    let chunk_count_square_root = 1;
+    let chunk_size = Vec2::splat(512.);
+    let chunk_offset_global = 0.5 * (1 - chunk_count_square_root) as f32 * chunk_size;
 
-fn startup_octree(mut commands: Commands) {
-    commands.spawn(build_octree());
-}
-
-fn build_octree() -> Octree {
-    let size = Vec2::new(1., 1.);
-    let offset = Vec2::new(0., 0.);
-
-    let mut octrees = vec![];
-    for x in -1..1 {
-        for y in -1..1 {
-            let sub_size = 0.5 * size;
-            let sub_offset = offset + 0.5 * sub_size + Vec2::new(x as f32, y as f32) * sub_size;
-            octrees.push(Octree {
-                x: sub_offset.x,
-                y: sub_offset.y,
-                width: sub_size.x,
-                height: sub_size.y,
-                value: Some(match simplex_noise_2d(sub_offset) {
-                    value if value > 0. => 1,
-                    _ => 0
-                }),
-                children: vec![],
-            });
+    for i in 0..chunk_count_square_root {
+        for j in 0..chunk_count_square_root {
+            commands.spawn(QuadTreeBuilder::new(
+                chunk_size,
+                chunk_offset_global + chunk_size * Vec2::new(i as f32, j as f32),
+                7,
+                4.,
+            ).build_root());
         }
     }
-
-    for octree in &octrees {
-        if octree.value != octrees[0].value {
-            return Octree {
-                x: offset.x,
-                y: offset.y,
-                width: size.x,
-                height: size.y,
-                value: None,
-                children: octrees,
-            };
-        }
-    }
-
-
-    return Octree {
-        x: 0.,
-        y: 0.,
-        width: 1.,
-        height: 1.,
-        value: octrees[0].value,
-        children: vec![],
-    };
 }
 
-fn update_octree(
-    query: Query<&Octree>,
+fn update_terrain(
+    query: Query<&QuadTree>,
     mut gizmos: Gizmos,
 ) {
-    for octree in query.iter() {
-        show_octree(octree, &mut gizmos);
+    for root in query.iter() {
+        show_quadtree_root(root, &mut gizmos);
     }
 }
 
-fn show_octree(octree: &Octree, gizmos: &mut Gizmos) {
-    if octree.children.is_empty() {
-        gizmos.rect_2d(
-            Vec2::new(octree.x, octree.y),
-            0.,
-            Vec2::new(octree.width, octree.height),
-            match octree.value {
-                Some(0) => Color::Hsla {
-                    hue: 0.,
-                    saturation: 0.,
-                    lightness: 1.,
-                    alpha: 1.,
-                },
-                Some(1) => Color::Hsla {
-                    hue: 0.,
-                    saturation: 1.,
-                    lightness: 0.25,
-                    alpha: 1.,
-                },
-                _ => Color::PINK,
-            },
-        );
-    } else {
-        octree.children.iter().for_each(|child| show_octree(child, gizmos));
+fn show_quadtree_root(root: &QuadTree, gizmos: &mut Gizmos) {
+    show_quadtree(root, gizmos);
+    gizmos.rect_2d(root.position(), 0., root.size(), Color::GREEN);
+}
+
+fn show_quadtree(quadtree: &QuadTree, gizmos: &mut Gizmos) {
+    match quadtree.value() {
+        Some(1) => gizmos.rect_2d(quadtree.position(), 0., quadtree.size(), Color::RED),
+        None => quadtree.children().iter().for_each(|child| show_quadtree(child, gizmos)),
+        _ => {}
     }
 }
