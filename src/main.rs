@@ -1,5 +1,6 @@
 use bevy::DefaultPlugins;
-use bevy::prelude::{App, Camera2dBundle, Color, Commands, Component, default, Gizmos, OrthographicProjection, Quat, Query, Startup, Update, Vec2, Vec3};
+use bevy::prelude::{App, Camera2dBundle, Color, Commands, Component, default, Gizmos, OrthographicProjection, Query, Startup, Update, Vec2};
+use noisy_bevy::simplex_noise_2d;
 
 fn main() {
     App::new()
@@ -26,15 +27,25 @@ struct Octree {
     y: f32,
     width: f32,
     height: f32,
+    value: usize,
 }
 
 fn startup_octree(mut commands: Commands) {
-    commands.spawn(Octree {
-        x: 0.,
-        y: 0.,
-        width: 1.,
-        height: 1.,
-    });
+    for x in -1..1 {
+        for y in -1..1 {
+            let position = Vec2::new(x as f32 + 0.5, y as f32 + 0.5);
+            commands.spawn(Octree {
+                x: position.x,
+                y: position.y,
+                width: 1.,
+                height: 1.,
+                value: match simplex_noise_2d(position) {
+                    value if value > 0. => 1,
+                    _ => 0
+                },
+            });
+        }
+    }
 }
 
 fn update_octree(
@@ -42,11 +53,25 @@ fn update_octree(
     mut gizmos: Gizmos,
 ) {
     for octree in query.iter() {
-        gizmos.rect(
-            Vec3::new(octree.x, octree.y, 0.),
-            Quat::default(),
+        gizmos.rect_2d(
+            Vec2::new(octree.x, octree.y),
+            0.,
             Vec2::new(octree.width, octree.height),
-            Color::GREEN,
+            match octree.value {
+                0 => Color::Hsla {
+                    hue: 0.,
+                    saturation: 0.,
+                    lightness: 1.,
+                    alpha: 1.,
+                },
+                1 => Color::Hsla {
+                    hue: 0.,
+                    saturation: 1.,
+                    lightness: 0.25,
+                    alpha: 1.,
+                },
+                _ => Color::PINK,
+            },
         );
     }
 }
