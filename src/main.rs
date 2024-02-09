@@ -33,12 +33,13 @@ struct Octree {
 fn startup_octree(mut commands: Commands) {
     for x in -1..1 {
         for y in -1..1 {
-            let position = Vec2::new(x as f32 + 0.5, y as f32 + 0.5);
+            let size = Vec2::new(1., 1.);
+            let position = Vec2::new(x as f32, y as f32) + 0.5 * size;
             commands.spawn(Octree {
                 x: position.x,
                 y: position.y,
-                width: 1.,
-                height: 1.,
+                width: size.x,
+                height: size.y,
                 value: match simplex_noise_2d(position) {
                     value if value > 0. => 1,
                     _ => 0
