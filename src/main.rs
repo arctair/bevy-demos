@@ -1,13 +1,15 @@
 mod quadtree;
 
 use bevy::DefaultPlugins;
-use bevy::prelude::{App, Camera2dBundle, Color, Commands, default, Gizmos, OrthographicProjection, Query, Startup, Update, Vec2};
+use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
+use bevy::prelude::{App, Camera2dBundle, Color, Commands, Component, default, EventReader, Gizmos, OrthographicProjection, Query, Startup, Update, Vec2};
 use crate::quadtree::{QuadTree, QuadTreeBuilder};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, startup_camera)
+        .add_systems(Update, update_camera)
         .add_systems(Startup, startup_terrain)
         .add_systems(Update, update_terrain)
         .run();
@@ -20,7 +22,28 @@ fn startup_camera(mut commands: Commands) {
             ..default()
         },
         ..default()
-    });
+    }).insert(ZoomConfiguration { min: 0.25, max: 4., speed: 0.25 });
+}
+
+fn update_camera(
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut query: Query<(&mut OrthographicProjection, &ZoomConfiguration)>,
+) {
+    let (mut projection, zoom) = query.single_mut();
+    for event in mouse_wheel_events.read() {
+        if let MouseScrollUnit::Line = event.unit {
+            let mut scale_inverse = 1. / projection.scale;
+            scale_inverse = zoom.min.max(zoom.max.min(scale_inverse + zoom.speed * event.y));
+            projection.scale = 1. / scale_inverse;
+        }
+    }
+}
+
+#[derive(Component)]
+struct ZoomConfiguration {
+    min: f32,
+    max: f32,
+    speed: f32,
 }
 
 fn startup_terrain(mut commands: Commands) {
