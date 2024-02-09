@@ -27,26 +27,59 @@ struct Octree {
     y: f32,
     width: f32,
     height: f32,
-    value: usize,
+    value: Option<usize>,
+    children: Vec<Octree>,
 }
 
 fn startup_octree(mut commands: Commands) {
+    commands.spawn(build_octree());
+}
+
+fn build_octree() -> Octree {
+    let size = Vec2::new(1., 1.);
+    let offset = Vec2::new(0., 0.);
+
+    let mut octrees = vec![];
     for x in -1..1 {
         for y in -1..1 {
-            let size = Vec2::new(1., 1.);
-            let position = Vec2::new(x as f32, y as f32) + 0.5 * size;
-            commands.spawn(Octree {
-                x: position.x,
-                y: position.y,
-                width: size.x,
-                height: size.y,
-                value: match simplex_noise_2d(position) {
+            let sub_size = 0.5 * size;
+            let sub_offset = offset + 0.5 * sub_size + Vec2::new(x as f32, y as f32) * sub_size;
+            octrees.push(Octree {
+                x: sub_offset.x,
+                y: sub_offset.y,
+                width: sub_size.x,
+                height: sub_size.y,
+                value: Some(match simplex_noise_2d(sub_offset) {
                     value if value > 0. => 1,
                     _ => 0
-                },
+                }),
+                children: vec![],
             });
         }
     }
+
+    for octree in &octrees {
+        if octree.value != octrees[0].value {
+            return Octree {
+                x: offset.x,
+                y: offset.y,
+                width: size.x,
+                height: size.y,
+                value: None,
+                children: octrees,
+            };
+        }
+    }
+
+
+    return Octree {
+        x: 0.,
+        y: 0.,
+        width: 1.,
+        height: 1.,
+        value: octrees[0].value,
+        children: vec![],
+    };
 }
 
 fn update_octree(
@@ -54,18 +87,24 @@ fn update_octree(
     mut gizmos: Gizmos,
 ) {
     for octree in query.iter() {
+        show_octree(octree, &mut gizmos);
+    }
+}
+
+fn show_octree(octree: &Octree, gizmos: &mut Gizmos) {
+    if octree.children.is_empty() {
         gizmos.rect_2d(
             Vec2::new(octree.x, octree.y),
             0.,
             Vec2::new(octree.width, octree.height),
             match octree.value {
-                0 => Color::Hsla {
+                Some(0) => Color::Hsla {
                     hue: 0.,
                     saturation: 0.,
                     lightness: 1.,
                     alpha: 1.,
                 },
-                1 => Color::Hsla {
+                Some(1) => Color::Hsla {
                     hue: 0.,
                     saturation: 1.,
                     lightness: 0.25,
@@ -74,5 +113,7 @@ fn update_octree(
                 _ => Color::PINK,
             },
         );
+    } else {
+        octree.children.iter().for_each(|child| show_octree(child, gizmos));
     }
 }
