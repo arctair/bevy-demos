@@ -100,6 +100,14 @@ impl QuadTree {
         Vec2::new(self.width, self.height)
     }
 
+    pub(crate) fn children(&self) -> &Vec<QuadTree> {
+        &self.children
+    }
+
+    pub(crate) fn value(&self) -> Option<usize> {
+        self.value
+    }
+
     pub(crate) fn collider(&self) -> Collider {
         Collider::compound(self.colliders())
     }

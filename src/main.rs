@@ -4,7 +4,9 @@ use bevy::DefaultPlugins;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
-use bevy::prelude::{App, BuildChildren, Camera2dBundle, Color, Commands, Component, EventReader, Gizmos, KeyCode, OrthographicProjection, Query, Startup, Transform, TransformBundle, Update, Vec2};
+use bevy::math::Quat;
+use bevy::prelude::{App, BuildChildren, Camera, Camera2dBundle, Color, Commands, Component, EventReader, Gizmos, GlobalTransform, KeyCode, OrthographicProjection, Query, Res, Startup, Time, Transform, TransformBundle, Update, Vec2, Vec3Swizzles, Window, With};
+use bevy::window::PrimaryWindow;
 use bevy_rapier2d::prelude::{Collider, ExternalForce, LockedAxes, NoUserData, RapierDebugRenderPlugin, RapierPhysicsPlugin, RigidBody, Vect, Velocity};
 use crate::quadtree::{QuadTree, QuadTreeBuilder};
 
@@ -14,7 +16,7 @@ fn main() {
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.))
         .add_plugins(RapierDebugRenderPlugin::default())
         .add_systems(Startup, startup_player)
-        .add_systems(Update, update_player)
+        .add_systems(Update, (update_player, player_action))
         .add_systems(Startup, startup_terrain)
         .add_systems(Update, update_terrain)
         .run();
@@ -88,6 +90,36 @@ fn update_player(
     external_force.force = left + right + up + down;
 }
 
+fn player_action(
+    time: Res<Time>,
+    player_query: Query<(&Transform, &GlobalTransform, &PlayerControls)>,
+    camera_query: Query<&Camera>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    mut quadtree_query: Query<&mut QuadTree>,
+    mut gizmos: Gizmos,
+) {
+    let camera = camera_query.single();
+    let (transform, global_transform, player_controls) = player_query.single();
+    if let Some(cursor_point) = window_query
+        .single()
+        .cursor_position()
+        .filter(|_| player_controls.action)
+        .and_then(|cursor_position| camera.viewport_to_world_2d(global_transform, cursor_position))
+    {
+        let angle = (4. * time.elapsed_seconds()).sin();
+        let translation = transform.translation.xy();
+        let forward = (cursor_point - translation).normalize().extend(0.);
+        let offset = Quat::from_rotation_z(angle) * forward;
+        let target = translation + 4. * offset.xy();
+        let radius = 1.;
+        gizmos.circle_2d(target, radius, Color::YELLOW);
+
+        for mut quadtree in quadtree_query.iter_mut() {
+            quadtree.set_value(target, radius, 0)
+        }
+    }
+}
+
 fn startup_terrain(mut commands: Commands) {
     let chunk_count_square_root = 1;
     let chunk_size = Vec2::splat(512.);
@@ -113,6 +145,17 @@ fn update_terrain(
     mut gizmos: Gizmos,
 ) {
     for root in query.iter() {
+        show(root, &mut gizmos);
         gizmos.rect_2d(root.position(), 0., root.size(), Color::GREEN);
+    }
+}
+
+fn show(quadtree: &QuadTree, gizmos: &mut Gizmos) {
+    for child in quadtree.children() {
+        show(child, gizmos);
+    }
+    match quadtree.value() {
+        Some(1) => { gizmos.rect_2d(quadtree.position(), 0., quadtree.size(), Color::RED); }
+        _ => {}
     }
 }
