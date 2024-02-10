@@ -5,7 +5,7 @@ use noisy_bevy::simplex_noise_2d;
 pub(crate) struct QuadTreeBuilder {
     root_size: Vec2,
     root_offset: Vec2,
-    unit_size: Vec2,
+    max_subdivision_count: u32,
     noise_scale: f32,
 }
 
@@ -19,64 +19,38 @@ impl QuadTreeBuilder {
         QuadTreeBuilder {
             root_size,
             root_offset,
-            unit_size: root_size / 2_f32.powf(max_subdivision_count as f32),
+            max_subdivision_count,
             noise_scale,
         }
     }
 
-    pub(crate) fn build_root(&self) -> QuadTree {
-        self.build(self.root_size, self.root_offset)
-    }
-
-    fn build(&self, size: Vec2, offset: Vec2) -> QuadTree {
-        if size.length() <= self.unit_size.length() {
-            return QuadTree {
-                unit_degree: 0,
-                x: offset.x,
-                y: offset.y,
-                width: size.x,
-                height: size.y,
-                value: Some(match simplex_noise_2d(self.noise_scale * offset / self.root_size) {
-                    value if value > 0. => 1,
-                    _ => 0
-                }),
-                children: vec![],
-            };
-        }
-
-        let mut children = vec![];
-        for x in -1..1 {
-            for y in -1..1 {
-                let child_size = 0.5 * size;
-                let child_offset = offset + 0.5 * child_size + Vec2::new(x as f32, y as f32) * child_size;
-                children.push(self.build(child_size, child_offset));
-            }
-        }
-
-        let first_child = &children[0];
-        for child in &children {
-            if !first_child.children.is_empty() || !child.children.is_empty() || first_child.value != child.value {
-                return QuadTree {
-                    unit_degree: first_child.unit_degree + 1,
-                    x: offset.x,
-                    y: offset.y,
-                    width: size.x,
-                    height: size.y,
-                    value: None,
-                    children,
-                };
-            }
-        }
-
-        return QuadTree {
-            unit_degree: first_child.unit_degree + 1,
-            x: offset.x,
-            y: offset.y,
-            width: size.x,
-            height: size.y,
-            value: children[0].value,
+    pub(crate) fn build(&self) -> QuadTree {
+        let mut root = QuadTree {
+            unit_degree: self.max_subdivision_count,
+            x: self.root_offset.x,
+            y: self.root_offset.y,
+            width: self.root_size.x,
+            height: self.root_size.y,
+            value: None,
             children: vec![],
         };
+        self.sample_into(&mut root);
+        root
+    }
+
+    fn sample_into(&self, quadtree: &mut QuadTree) {
+        if quadtree.unit_degree == 0 {
+            quadtree.value = Some(match simplex_noise_2d(self.noise_scale * quadtree.position() / self.root_size) {
+                value if value > 0. => 1,
+                _ => 0
+            })
+        } else {
+            quadtree.subdivide();
+            for child in &mut quadtree.children {
+                self.sample_into(child);
+            }
+            quadtree.consolidate();
+        }
     }
 }
 
@@ -199,7 +173,7 @@ mod tests {
                 Vec2::ZERO,
                 0,
                 1.,
-            ).build_root();
+            ).build();
 
             assert_eq!(root.value, Some(0));
 
@@ -220,7 +194,7 @@ mod tests {
                 Vec2::ZERO,
                 0,
                 1.,
-            ).build_root();
+            ).build();
 
             assert_eq!(root.value, Some(0));
 
@@ -239,7 +213,7 @@ mod tests {
             Vec2::ZERO,
             1,
             0.,
-        ).build_root();
+        ).build();
 
         assert_eq!(root.value, Some(0));
 
@@ -262,7 +236,7 @@ mod tests {
             Vec2::ZERO,
             1,
             1.,
-        ).build_root();
+        ).build();
 
         assert_eq!(root.children[0].value, Some(0));
         assert_eq!(root.children[1].value, Some(1));
@@ -284,7 +258,7 @@ mod tests {
             Vec2::ZERO,
             1,
             1.,
-        ).build_root();
+        ).build();
 
         assert_eq!(root.children[0].value, Some(0));
         assert_eq!(root.children[1].value, Some(1));

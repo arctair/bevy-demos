@@ -132,7 +132,7 @@ fn startup_terrain(mut commands: Commands) {
                 chunk_offset_global + chunk_size * Vec2::new(i as f32, j as f32),
                 8,
                 4.,
-            ).build_root();
+            ).build();
 
             let collider = root.collider();
             commands.spawn(root).insert(collider);
