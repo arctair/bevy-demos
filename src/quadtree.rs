@@ -1,4 +1,5 @@
 use bevy::prelude::{Component, Vec2};
+use bevy_rapier2d::prelude::{Collider, Rot, Vect};
 use noisy_bevy::simplex_noise_2d;
 
 pub(crate) struct QuadTreeBuilder {
@@ -95,11 +96,18 @@ impl QuadTree {
         Vec2::new(self.width, self.height)
     }
 
-    pub(crate) fn value(&self) -> Option<usize> {
-        self.value
+    pub(crate) fn collider(&self) -> Collider {
+        Collider::compound(self.colliders())
     }
 
-    pub(crate) fn children(&self) -> &Vec<QuadTree> {
-        &self.children
+    fn colliders(&self) -> Vec<(Vect, Rot, Collider)> {
+        if self.children.is_empty() {
+            match self.value {
+                Some(1) => vec![(Vect::new(self.x, self.y), 0., Collider::cuboid(self.width / 2., self.height / 2.))],
+                _ => vec![]
+            }
+        } else {
+            self.children.iter().flat_map(QuadTree::colliders).collect()
+        }
     }
 }
