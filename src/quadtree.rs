@@ -2,55 +2,47 @@ use bevy::prelude::{Component, Vec2};
 use bevy_rapier2d::prelude::{Collider, Rot, Vect};
 use noisy_bevy::simplex_noise_2d;
 
-pub(crate) struct QuadTreeBuilder {
-    root_size: Vec2,
-    root_offset: Vec2,
-    max_subdivision_count: u32,
+pub(crate) struct SampleIntoQuadTree {
     noise_scale: f32,
+    quadtree: QuadTree,
 }
 
-impl QuadTreeBuilder {
+impl SampleIntoQuadTree {
     pub(crate) fn new(
-        root_size: Vec2,
-        root_offset: Vec2,
+        size: Vec2,
+        position: Vec2,
         max_subdivision_count: u32,
         noise_scale: f32,
-    ) -> QuadTreeBuilder {
-        QuadTreeBuilder {
-            root_size,
-            root_offset,
-            max_subdivision_count,
+    ) -> SampleIntoQuadTree {
+        SampleIntoQuadTree {
             noise_scale,
+            quadtree: QuadTree {
+                unit_degree: max_subdivision_count,
+                x: position.x,
+                y: position.y,
+                width: size.x,
+                height: size.y,
+                value: None,
+                children: vec![],
+            },
         }
     }
 
-    pub(crate) fn build(&self) -> QuadTree {
-        let mut root = QuadTree {
-            unit_degree: self.max_subdivision_count,
-            x: self.root_offset.x,
-            y: self.root_offset.y,
-            width: self.root_size.x,
-            height: self.root_size.y,
-            value: None,
-            children: vec![],
-        };
-        self.sample_into(&mut root);
-        root
-    }
-
-    fn sample_into(&self, quadtree: &mut QuadTree) {
-        if quadtree.unit_degree == 0 {
-            quadtree.value = Some(match simplex_noise_2d(self.noise_scale * quadtree.position() / self.root_size) {
-                value if value > 0. => 1,
-                _ => 0
-            })
-        } else {
-            quadtree.subdivide();
-            for child in &mut quadtree.children {
-                self.sample_into(child);
+    pub(crate) fn build(mut self) -> QuadTree {
+        let top_left = self.quadtree.position() - 0.5 * self.quadtree.size();
+        let row_count = 2_u32.pow(self.quadtree.unit_degree);
+        let unit_length = self.quadtree.width / row_count as f32;
+        for x in 0..row_count {
+            for y in 0..row_count {
+                let position = top_left + unit_length * Vec2::new(0.5 + x as f32, 0.5 + y as f32);
+                let value = match simplex_noise_2d(self.noise_scale * position / self.quadtree.size()) {
+                    value if value > 0. => 1,
+                    _ => 0
+                };
+                self.quadtree.set_value(position, 0.5 * unit_length, value)
             }
-            quadtree.consolidate();
         }
+        self.quadtree
     }
 }
 
@@ -163,7 +155,7 @@ impl QuadTree {
 #[cfg(test)]
 mod tests {
     use bevy::prelude::Vec2;
-    use crate::quadtree::QuadTreeBuilder;
+    use crate::quadtree::SampleIntoQuadTree;
 
     #[test]
     fn test_set_value_0_subdivisions_hit() {
@@ -172,7 +164,7 @@ mod tests {
             (Vec2::new(1.9, 0.), 1.0),
             (Vec2::splat(1.0 + 1.0 / 2.0f32.sqrt() - 0.1), 1.0),
         ] {
-            let mut root = QuadTreeBuilder::new(
+            let mut root = SampleIntoQuadTree::new(
                 Vec2::new(2., 2.),
                 Vec2::ZERO,
                 0,
@@ -193,7 +185,7 @@ mod tests {
             (Vec2::new(2., 0.), 1.0),
             (Vec2::splat(1.0 + 1.0 / 2.0_f32.sqrt()), 1.0),
         ] {
-            let mut root = QuadTreeBuilder::new(
+            let mut root = SampleIntoQuadTree::new(
                 Vec2::new(2., 2.),
                 Vec2::ZERO,
                 0,
@@ -212,7 +204,7 @@ mod tests {
     fn test_set_value_must_subdivide() {
         let (target, radius) = (Vec2::new(-0.5, -0.5), 0.1);
 
-        let mut root = QuadTreeBuilder::new(
+        let mut root = SampleIntoQuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,
@@ -235,7 +227,7 @@ mod tests {
     fn test_set_value_superdivision_already_set() {
         let (target, radius) = (Vec2::new(-0.5, -0.5), 0.1);
 
-        let mut root = QuadTreeBuilder::new(
+        let mut root = SampleIntoQuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,
@@ -253,7 +245,7 @@ mod tests {
     fn test_set_value_already_subdivided() {
         let (target, radius) = (Vec2::new(-0.5, -0.5), 0.1);
 
-        let mut root = QuadTreeBuilder::new(
+        let mut root = SampleIntoQuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,
@@ -275,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_set_value_and_consolidate() {
-        let mut root = QuadTreeBuilder::new(
+        let mut root = SampleIntoQuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,

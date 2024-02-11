@@ -8,7 +8,7 @@ use bevy::math::Quat;
 use bevy::prelude::{App, BuildChildren, Camera, Camera2dBundle, Color, Commands, Component, EventReader, Gizmos, GlobalTransform, KeyCode, OrthographicProjection, Query, Res, Startup, Time, Transform, TransformBundle, Update, Vec2, Vec3Swizzles, Window, With};
 use bevy::window::PrimaryWindow;
 use bevy_rapier2d::prelude::{Collider, ExternalForce, LockedAxes, NoUserData, RapierDebugRenderPlugin, RapierPhysicsPlugin, RigidBody, Vect, Velocity};
-use crate::quadtree::{QuadTree, QuadTreeBuilder};
+use crate::quadtree::{QuadTree, SampleIntoQuadTree};
 
 fn main() {
     App::new()
@@ -127,7 +127,7 @@ fn startup_terrain(mut commands: Commands) {
 
     for i in 0..chunk_count_square_root {
         for j in 0..chunk_count_square_root {
-            let root = QuadTreeBuilder::new(
+            let root = SampleIntoQuadTree::new(
                 chunk_size,
                 chunk_offset_global + chunk_size * Vec2::new(i as f32, j as f32),
                 8,
