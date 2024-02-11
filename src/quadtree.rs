@@ -109,7 +109,7 @@ impl QuadTree {
         if distance < radius {
             if self.unit_degree <= 0 {
                 self.value = Some(value);
-            } else if self.children.is_empty() {
+            } else if self.value != Some(value) && self.children.is_empty() {
                 self.subdivide()
             }
 
@@ -225,6 +225,24 @@ mod tests {
         assert_eq!(root.children[1].value, Some(0), "failed to set NW child value to old root value");
         assert_eq!(root.children[2].value, Some(0), "failed to set SE child value to old root value");
         assert_eq!(root.children[3].value, Some(0), "failed to set NE child value to old root value");
+    }
+
+    #[test]
+    fn test_set_value_superdivision_already_set() {
+        let (target, radius) = (Vec2::new(-0.5, -0.5), 0.1);
+
+        let mut root = QuadTreeBuilder::new(
+            Vec2::new(2., 2.),
+            Vec2::ZERO,
+            1,
+            0.,
+        ).build();
+
+        assert_eq!(root.value, Some(0));
+
+        root.set_value(target, radius, 0);
+
+        assert_eq!(root.value, Some(0));
     }
 
     #[test]
