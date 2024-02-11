@@ -94,7 +94,8 @@ impl QuadTree {
             if self.unit_degree <= 0 {
                 self.value = Some(value);
             } else if self.value != Some(value) && self.children.is_empty() {
-                self.subdivide()
+                self.subdivide();
+                self.value = None;
             }
 
             for child in &mut self.children {
@@ -118,12 +119,11 @@ impl QuadTree {
     }
 
     fn subdivide(&mut self) {
-        let mut children = vec![];
         for x in -1..1 {
             for y in -1..1 {
                 let child_size = 0.5 * self.size();
                 let child_offset = self.position() + 0.5 * child_size + Vec2::new(x as f32, y as f32) * child_size;
-                children.push(QuadTree {
+                self.children.push(QuadTree {
                     x: child_offset.x,
                     y: child_offset.y,
                     width: child_size.x,
@@ -134,20 +134,14 @@ impl QuadTree {
                 });
             }
         }
-        self.children = children;
-        self.value = None;
     }
 
     fn consolidate(&mut self) {
         if let Some(first_child) = self.children.first() {
-            for child in &self.children {
-                if !first_child.children.is_empty() || !child.children.is_empty() || first_child.value != child.value {
-                    return;
-                }
+            if first_child.children.is_empty() && self.children.iter().all(|child| child.children.is_empty() && first_child.value == child.value) {
+                self.value = first_child.value;
+                self.children = vec![];
             }
-
-            self.value = first_child.value;
-            self.children = vec![];
         }
     }
 }
