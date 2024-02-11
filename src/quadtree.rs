@@ -1,6 +1,5 @@
 use bevy::prelude::{Component, Vec2};
 use bevy::utils::Uuid;
-use bevy_rapier2d::prelude::{Collider, Rot, Vect};
 use noisy_bevy::simplex_noise_2d;
 
 pub(crate) struct SampleIntoQuadTree {
@@ -30,10 +29,11 @@ impl SampleIntoQuadTree {
         }
     }
 
-    pub(crate) fn build(mut self) -> QuadTree {
+    pub(crate) fn build(mut self) -> (QuadTree, Vec<QuadTreeEvent>) {
         let top_left = self.quadtree.position() - 0.5 * self.quadtree.size();
         let row_count = 2_u32.pow(self.quadtree.unit_degree);
         let unit_length = self.quadtree.width / row_count as f32;
+        let mut events = vec![];
         for x in 0..row_count {
             for y in 0..row_count {
                 let position = top_left + unit_length * Vec2::new(0.5 + x as f32, 0.5 + y as f32);
@@ -41,10 +41,11 @@ impl SampleIntoQuadTree {
                     value if value > 0. => 1,
                     _ => 0
                 };
-                self.quadtree.set_value(position, 0.5 * unit_length, value);
+                events.append(&mut self.quadtree.set_value(position, 0.5 * unit_length, value);
             }
         }
-        self.quadtree
+
+        (self.quadtree, events)
     }
 }
 
@@ -90,21 +91,6 @@ impl QuadTree {
         self.value
     }
 
-    pub(crate) fn collider(&self) -> Collider {
-        Collider::compound(self.colliders())
-    }
-
-    fn colliders(&self) -> Vec<(Vect, Rot, Collider)> {
-        if self.children.is_empty() {
-            match self.value {
-                Some(1) => vec![(Vect::new(self.x, self.y), 0., Collider::cuboid(self.width / 2., self.height / 2.))],
-                _ => vec![]
-            }
-        } else {
-            self.children.iter().flat_map(QuadTree::colliders).collect()
-        }
-    }
-
     pub(crate) fn set_value(&mut self, position: Vec2, radius: f32, value: usize) -> Vec<QuadTreeEvent> {
         let mut events = vec![];
         if self.intersects_circle(position, radius) {
@@ -120,9 +106,7 @@ impl QuadTree {
                         value: Some(value),
                     })
                 } else if self.children.is_empty() {
-                    for event in self.subdivide() {
-                        events.push(event);
-                    }
+                    events.append(&mut self.subdivide());
 
                     self.value = None;
                     events.push(QuadTreeEvent {
@@ -137,14 +121,10 @@ impl QuadTree {
             }
 
             for child in &mut self.children {
-                for event in child.set_value(position, radius, value) {
-                    events.push(event);
-                }
+                events.append(&mut child.set_value(position, radius, value));
             }
 
-            for event in self.consolidate() {
-                events.push(event);
-            }
+            events.append(&mut self.consolidate());
         }
         events
     }
@@ -234,7 +214,7 @@ mod tests {
             (Vec2::new(1.9, 0.), 1.0),
             (Vec2::splat(1.0 + 1.0 / 2.0f32.sqrt() - 0.1), 1.0),
         ] {
-            let mut root = SampleIntoQuadTree::new(
+            let (mut root, _) = SampleIntoQuadTree::new(
                 Vec2::new(2., 2.),
                 Vec2::ZERO,
                 0,
@@ -262,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_set_value_0_subdivisions_hit_value_match() {
-        let mut root = SampleIntoQuadTree::new(
+        let (mut root, _) = SampleIntoQuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             0,
@@ -284,7 +264,7 @@ mod tests {
             (Vec2::new(2., 0.), 1.0),
             (Vec2::splat(1.0 + 1.0 / 2.0_f32.sqrt()), 1.0),
         ] {
-            let mut root = SampleIntoQuadTree::new(
+            let (mut root, _) = SampleIntoQuadTree::new(
                 Vec2::new(2., 2.),
                 Vec2::ZERO,
                 0,
@@ -303,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_set_value_must_subdivide() {
-        let mut root = SampleIntoQuadTree::new(
+        let (mut root, _) = SampleIntoQuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,
@@ -377,7 +357,7 @@ mod tests {
     fn test_set_value_superdivision_already_set() {
         let (target, radius) = (Vec2::new(-0.5, -0.5), 0.1);
 
-        let mut root = SampleIntoQuadTree::new(
+        let (mut root, _) = SampleIntoQuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,
@@ -397,7 +377,7 @@ mod tests {
     fn test_set_value_already_subdivided() {
         let (target, radius) = (Vec2::new(-0.5, -0.5), 0.1);
 
-        let mut root = SampleIntoQuadTree::new(
+        let (mut root, _) = SampleIntoQuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,
@@ -430,7 +410,7 @@ mod tests {
 
     #[test]
     fn test_set_value_and_consolidate() {
-        let mut root = SampleIntoQuadTree::new(
+        let (mut root, _) = SampleIntoQuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,

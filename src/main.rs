@@ -5,10 +5,11 @@ use bevy::input::ButtonState;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::math::Quat;
-use bevy::prelude::{App, BuildChildren, Camera, Camera2dBundle, Color, Commands, Component, EventReader, Gizmos, GlobalTransform, KeyCode, OrthographicProjection, Query, Res, Startup, Time, Transform, TransformBundle, Update, Vec2, Vec3Swizzles, Window, With};
+use bevy::prelude::{App, BuildChildren, Camera, Camera2dBundle, Color, Commands, Component, Entity, EventReader, Gizmos, GlobalTransform, KeyCode, OrthographicProjection, Query, Res, Startup, Time, Transform, TransformBundle, Update, Vec2, Vec3Swizzles, Window, With};
+use bevy::utils::HashMap;
 use bevy::window::PrimaryWindow;
-use bevy_rapier2d::prelude::{Collider, ExternalForce, LockedAxes, NoUserData, RapierDebugRenderPlugin, RapierPhysicsPlugin, RigidBody, Vect, Velocity};
-use crate::quadtree::{QuadTree, SampleIntoQuadTree};
+use bevy_rapier2d::prelude::{Collider, ExternalForce, LockedAxes, NoUserData, RapierDebugRenderPlugin, RapierPhysicsPlugin, RigidBody, Rot, Vect, Velocity};
+use crate::quadtree::{QuadTree, QuadTreeEvent, QuadTreeId, SampleIntoQuadTree};
 
 fn main() {
     App::new()
@@ -91,11 +92,12 @@ fn update_player(
 }
 
 fn player_action(
+    mut commands: Commands,
     time: Res<Time>,
     player_query: Query<(&Transform, &GlobalTransform, &PlayerControls)>,
     camera_query: Query<&Camera>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut quadtree_query: Query<&mut QuadTree>,
+    mut quadtree_query: Query<(Entity, &mut QuadTree, &mut TerrainColliderBuilder)>,
     mut gizmos: Gizmos,
 ) {
     let camera = camera_query.single();
@@ -114,8 +116,16 @@ fn player_action(
         let radius = 1.;
         gizmos.circle_2d(target, radius, Color::YELLOW);
 
-        for mut quadtree in quadtree_query.iter_mut() {
-            quadtree.set_value(target, radius, 0);
+        for (entity, mut quadtree, mut container) in quadtree_query.iter_mut() {
+            let events = quadtree.set_value(target, radius, 0);
+            for event in &events {
+                container.accept(event);
+            }
+            if !events.is_empty() {
+                let mut entity = commands.entity(entity);
+                entity.remove::<Collider>();
+                entity.insert(container.collider());
+            }
         }
     }
 }
@@ -127,15 +137,53 @@ fn startup_terrain(mut commands: Commands) {
 
     for i in 0..chunk_count_square_root {
         for j in 0..chunk_count_square_root {
-            let root = SampleIntoQuadTree::new(
+            let (root, leaf_events) = SampleIntoQuadTree::new(
                 chunk_size,
                 chunk_offset_global + chunk_size * Vec2::new(i as f32, j as f32),
                 8,
                 4.,
             ).build();
 
-            let collider = root.collider();
-            commands.spawn(root).insert(collider);
+            let mut builder = TerrainColliderBuilder::new();
+            for event in &leaf_events {
+                builder.accept(event);
+            }
+
+            commands
+                .spawn(root)
+                .insert(builder.collider())
+                .insert(builder)
+                .insert(TransformBundle::default())
+            ;
+        }
+    }
+}
+
+#[derive(Component)]
+struct TerrainColliderBuilder {
+    colliders: HashMap<QuadTreeId, (Vec2, Rot, Collider)>,
+}
+
+impl TerrainColliderBuilder {
+    fn new() -> TerrainColliderBuilder {
+        TerrainColliderBuilder { colliders: HashMap::new() }
+    }
+
+    fn collider(&self) -> Collider {
+        Collider::compound(self.colliders.values().map(|v| (v.0, v.1, v.2.clone())).collect())
+    }
+
+    fn accept(&mut self, event: &QuadTreeEvent) {
+        match event.value {
+            Some(1) => {
+                let collider = (
+                    Vect::new(event.x, event.y),
+                    0.,
+                    Collider::cuboid(event.width / 2., event.height / 2.),
+                );
+                self.colliders.insert(event.quadtree_id, collider);
+            }
+            _ => { self.colliders.remove(&event.quadtree_id); }
         }
     }
 }
@@ -155,7 +203,9 @@ fn show(quadtree: &QuadTree, gizmos: &mut Gizmos) {
         show(child, gizmos);
     }
     match quadtree.value() {
-        Some(1) => { gizmos.rect_2d(quadtree.position(), 0., quadtree.size(), Color::RED); }
+        Some(1) => {
+            // gizmos.rect_2d(quadtree.position(), 0., quadtree.size(), Color::RED);
+        }
         _ => {}
     }
 }
