@@ -9,7 +9,8 @@ use bevy::prelude::{App, BuildChildren, Camera, Camera2dBundle, Color, Commands,
 use bevy::utils::HashMap;
 use bevy::window::PrimaryWindow;
 use bevy_rapier2d::prelude::{Collider, ExternalForce, LockedAxes, NoUserData, RapierDebugRenderPlugin, RapierPhysicsPlugin, RigidBody, Rot, Vect, Velocity};
-use crate::quadtree::{QuadTree, QuadTreeEvent, QuadTreeId, SampleIntoQuadTree};
+use noisy_bevy::simplex_noise_2d;
+use crate::quadtree::{QuadTree, QuadTreeEvent, QuadTreeId};
 
 fn main() {
     App::new()
@@ -137,15 +138,13 @@ fn startup_terrain(mut commands: Commands) {
 
     for i in 0..chunk_count_square_root {
         for j in 0..chunk_count_square_root {
-            let (root, leaf_events) = SampleIntoQuadTree::new(
+            let mut builder = TerrainColliderBuilder::new();
+            let mut root = QuadTree::new(
                 chunk_size,
                 chunk_offset_global + chunk_size * Vec2::new(i as f32, j as f32),
                 8,
-                4.,
-            ).build();
-
-            let mut builder = TerrainColliderBuilder::new();
-            for event in &leaf_events {
+            );
+            for event in &sample_into(4., &mut root) {
                 builder.accept(event);
             }
 
@@ -158,6 +157,30 @@ fn startup_terrain(mut commands: Commands) {
         }
     }
 }
+
+fn sample_into(
+    noise_scale: f32,
+    quadtree: &mut QuadTree,
+) -> Vec<QuadTreeEvent> {
+    let mut events = vec![];
+
+    let top_left = quadtree.position() - 0.5 * quadtree.size();
+    let row_count = 2_u32.pow(quadtree.unit_degree);
+    let unit_length = quadtree.size().x / row_count as f32;
+    for x in 0..row_count {
+        for y in 0..row_count {
+            let position = top_left + unit_length * Vec2::new(0.5 + x as f32, 0.5 + y as f32);
+            let value = match simplex_noise_2d(noise_scale * position / quadtree.size()) {
+                value if value > 0. => 1,
+                _ => 0
+            };
+            events.append(&mut quadtree.set_value(position, 0.5 * unit_length, value));
+        }
+    }
+
+    events
+}
+
 
 #[derive(Component)]
 struct TerrainColliderBuilder {

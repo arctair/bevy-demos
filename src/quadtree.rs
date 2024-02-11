@@ -1,58 +1,10 @@
 use bevy::prelude::{Component, Vec2};
 use bevy::utils::Uuid;
-use noisy_bevy::simplex_noise_2d;
-
-pub(crate) struct SampleIntoQuadTree {
-    noise_scale: f32,
-    quadtree: QuadTree,
-}
-
-impl SampleIntoQuadTree {
-    pub(crate) fn new(
-        size: Vec2,
-        position: Vec2,
-        max_subdivision_count: u32,
-        noise_scale: f32,
-    ) -> SampleIntoQuadTree {
-        SampleIntoQuadTree {
-            noise_scale,
-            quadtree: QuadTree {
-                id: QuadTreeId(Uuid::new_v4()),
-                unit_degree: max_subdivision_count,
-                x: position.x,
-                y: position.y,
-                width: size.x,
-                height: size.y,
-                value: None,
-                children: vec![],
-            },
-        }
-    }
-
-    pub(crate) fn build(mut self) -> (QuadTree, Vec<QuadTreeEvent>) {
-        let top_left = self.quadtree.position() - 0.5 * self.quadtree.size();
-        let row_count = 2_u32.pow(self.quadtree.unit_degree);
-        let unit_length = self.quadtree.width / row_count as f32;
-        let mut events = vec![];
-        for x in 0..row_count {
-            for y in 0..row_count {
-                let position = top_left + unit_length * Vec2::new(0.5 + x as f32, 0.5 + y as f32);
-                let value = match simplex_noise_2d(self.noise_scale * position / self.quadtree.size()) {
-                    value if value > 0. => 1,
-                    _ => 0
-                };
-                events.append(&mut self.quadtree.set_value(position, 0.5 * unit_length, value);
-            }
-        }
-
-        (self.quadtree, events)
-    }
-}
 
 #[derive(Component)]
 pub(crate) struct QuadTree {
     id: QuadTreeId,
-    unit_degree: u32,
+    pub(crate) unit_degree: u32,
     x: f32,
     y: f32,
     width: f32,
@@ -75,6 +27,23 @@ pub(crate) struct QuadTreeEvent {
 pub(crate) struct QuadTreeId(Uuid);
 
 impl QuadTree {
+    pub(crate) fn new(
+        size: Vec2,
+        position: Vec2,
+        max_subdivision_count: u32,
+    ) -> Self {
+        QuadTree {
+            id: QuadTreeId(Uuid::new_v4()),
+            unit_degree: max_subdivision_count,
+            x: position.x,
+            y: position.y,
+            width: size.x,
+            height: size.y,
+            value: None,
+            children: vec![],
+        }
+    }
+
     pub(crate) fn position(&self) -> Vec2 {
         Vec2::new(self.x, self.y)
     }
@@ -205,7 +174,7 @@ impl QuadTree {
 #[cfg(test)]
 mod tests {
     use bevy::prelude::Vec2;
-    use crate::quadtree::{QuadTreeEvent, QuadTreeId, SampleIntoQuadTree};
+    use crate::quadtree::{QuadTree, QuadTreeEvent, QuadTreeId};
 
     #[test]
     fn test_set_value_0_subdivisions_hit() {
@@ -214,12 +183,13 @@ mod tests {
             (Vec2::new(1.9, 0.), 1.0),
             (Vec2::splat(1.0 + 1.0 / 2.0f32.sqrt() - 0.1), 1.0),
         ] {
-            let (mut root, _) = SampleIntoQuadTree::new(
+            let mut root = QuadTree::new(
                 Vec2::new(2., 2.),
                 Vec2::ZERO,
                 0,
-                1.,
-            ).build();
+            );
+
+            root.set_value(Vec2::ZERO, 1., 0);
 
             assert_eq!(root.value, Some(0));
 
@@ -242,12 +212,13 @@ mod tests {
 
     #[test]
     fn test_set_value_0_subdivisions_hit_value_match() {
-        let (mut root, _) = SampleIntoQuadTree::new(
+        let mut root = QuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             0,
-            1.,
-        ).build();
+        );
+
+        root.set_value(Vec2::ZERO, 1., 0);
 
         assert_eq!(root.value, Some(0));
 
@@ -264,12 +235,13 @@ mod tests {
             (Vec2::new(2., 0.), 1.0),
             (Vec2::splat(1.0 + 1.0 / 2.0_f32.sqrt()), 1.0),
         ] {
-            let (mut root, _) = SampleIntoQuadTree::new(
+            let mut root = QuadTree::new(
                 Vec2::new(2., 2.),
                 Vec2::ZERO,
                 0,
-                1.,
-            ).build();
+            );
+
+            root.set_value(Vec2::ZERO, 1., 0);
 
             assert_eq!(root.value, Some(0));
 
@@ -283,12 +255,13 @@ mod tests {
 
     #[test]
     fn test_set_value_must_subdivide() {
-        let (mut root, _) = SampleIntoQuadTree::new(
+        let mut root = QuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,
-            0.,
-        ).build();
+        );
+
+        root.set_value(Vec2::ZERO, 1., 0);
 
         assert_eq!(root.value, Some(0));
 
@@ -357,12 +330,13 @@ mod tests {
     fn test_set_value_superdivision_already_set() {
         let (target, radius) = (Vec2::new(-0.5, -0.5), 0.1);
 
-        let (mut root, _) = SampleIntoQuadTree::new(
+        let mut root = QuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,
-            0.,
-        ).build();
+        );
+
+        root.set_value(Vec2::ZERO, 1., 0);
 
         assert_eq!(root.value, Some(0));
 
@@ -377,12 +351,14 @@ mod tests {
     fn test_set_value_already_subdivided() {
         let (target, radius) = (Vec2::new(-0.5, -0.5), 0.1);
 
-        let (mut root, _) = SampleIntoQuadTree::new(
+        let mut root = QuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,
-            1.,
-        ).build();
+        );
+
+        root.set_value(Vec2::new(0., -0.5), 0.5, 0);
+        root.set_value(Vec2::new(0., 0.5), 0.5, 1);
 
         assert_eq!(root.children[0].value, Some(0));
         assert_eq!(root.children[1].value, Some(1));
@@ -410,12 +386,14 @@ mod tests {
 
     #[test]
     fn test_set_value_and_consolidate() {
-        let (mut root, _) = SampleIntoQuadTree::new(
+        let mut root = QuadTree::new(
             Vec2::new(2., 2.),
             Vec2::ZERO,
             1,
-            1.,
-        ).build();
+        );
+
+        root.set_value(Vec2::new(0., -0.5), 0.5, 0);
+        root.set_value(Vec2::new(0., 0.5), 0.5, 1);
 
         assert_eq!(root.children[0].value, Some(0));
         assert_eq!(root.children[1].value, Some(1));
