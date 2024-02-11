@@ -98,15 +98,7 @@ impl QuadTree {
     }
 
     pub(crate) fn set_value(&mut self, position: Vec2, radius: f32, value: usize) {
-        let delta = position - self.position();
-        let half_width = self.width / 2.;
-        let half_height = self.height / 2.;
-        let closest = self.position() + Vec2::new(
-            half_width.min((-half_width).max(delta.x)),
-            half_height.min((-half_height).max(delta.y)),
-        );
-        let distance = closest.distance(position);
-        if distance < radius {
+        if self.intersects_circle(position, radius) {
             if self.unit_degree <= 0 {
                 self.value = Some(value);
             } else if self.value != Some(value) && self.children.is_empty() {
@@ -119,6 +111,18 @@ impl QuadTree {
 
             self.consolidate()
         }
+    }
+
+    fn intersects_circle(&self, position: Vec2, radius: f32) -> bool {
+        let delta = position - self.position();
+        let half_width = self.width / 2.;
+        let half_height = self.height / 2.;
+        let closest = self.position() + Vec2::new(
+            half_width.min((-half_width).max(delta.x)),
+            half_height.min((-half_height).max(delta.y)),
+        );
+        let distance = closest.distance(position);
+        distance < radius
     }
 
     fn subdivide(&mut self) {
