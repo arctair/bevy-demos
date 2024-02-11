@@ -115,7 +115,7 @@ fn player_action(
         gizmos.circle_2d(target, radius, Color::YELLOW);
 
         for mut quadtree in quadtree_query.iter_mut() {
-            quadtree.set_value(target, radius, 0)
+            quadtree.set_value(target, radius, 0);
         }
     }
 }
