@@ -1,34 +1,38 @@
+use std::slice::Iter;
 use bevy::prelude::Vec2;
 
 #[derive(Debug)]
-pub struct QuadTree {
-    nodes: Vec<QuadTreeNode>,
+pub struct QuadTree<T> {
+    nodes: Vec<QuadTreeNode<T>>,
 }
 
-impl QuadTree {
-    pub fn new() -> QuadTree {
-        QuadTree {
-            nodes: vec![
-                QuadTreeNode::new(0b0, 0b0, 0),
-            ]
-        }
+impl<T> QuadTree<T> {
+    pub fn new(default_value: T) -> QuadTree<T> {
+        let root = QuadTreeNode::new(0b0, 0b0, 0, default_value);
+        QuadTree { nodes: vec![root] }
     }
 
-    pub fn leafs(&self) -> impl Iterator<Item=QuadTreeNode> + '_ {
-        self.nodes.iter().map(|q| q.clone())
+    pub fn sample(&mut self, from: fn() -> T) {
+        let root = &mut self.nodes[0];
+        root.value = from();
+    }
+
+    pub fn leafs(&self) -> Iter<'_, QuadTreeNode<T>> {
+        self.nodes.iter()
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct QuadTreeNode {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct QuadTreeNode<T> {
     x: i32,
     y: i32,
     depth: i32,
+    value: T,
 }
 
-impl QuadTreeNode {
-    pub fn new(x: i32, y: i32, depth: i32) -> QuadTreeNode {
-        QuadTreeNode { x, y, depth }
+impl<T> QuadTreeNode<T> {
+    pub fn new(x: i32, y: i32, depth: i32, value: T) -> QuadTreeNode<T> {
+        QuadTreeNode { x, y, depth, value }
     }
 
     pub fn center(&self) -> Vec2 {

@@ -18,7 +18,7 @@ fn main() {
 
 #[derive(Component)]
 struct Container {
-    quadtree: QuadTree,
+    quadtree: QuadTree<()>,
 }
 
 fn startup(
@@ -29,7 +29,7 @@ fn startup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    let container = Container { quadtree: QuadTree::new() };
+    let container = Container { quadtree: QuadTree::new(()) };
     let transform = Transform::default()
         .with_translation(Vec2::splat(-256.).extend(0.))
         .with_scale(Vec2::splat(512.).extend(0.));
