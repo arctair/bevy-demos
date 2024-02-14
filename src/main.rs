@@ -1,5 +1,5 @@
 use bevy::DefaultPlugins;
-use bevy::prelude::{App, Assets, AssetServer, Camera2dBundle, Color, Commands, default, Gizmos, ImagePlugin, Mesh, PluginGroup, Res, ResMut, Startup, Transform, Update, Vec2};
+use bevy::prelude::{App, Assets, AssetServer, BuildChildren, Camera2dBundle, Color, Commands, Component, default, Gizmos, ImagePlugin, Mesh, PluginGroup, Query, Res, ResMut, SpatialBundle, Startup, Transform, Update, Vec2, Vec3Swizzles};
 use bevy::prelude::shape::Quad;
 use bevy::sprite::{ColorMaterial, MaterialMesh2dBundle};
 use bevy_rapier2d::prelude::{NoUserData, RapierDebugRenderPlugin, RapierPhysicsPlugin};
@@ -15,6 +15,12 @@ fn main() {
         .run();
 }
 
+
+#[derive(Component)]
+struct Container {
+    quadtree: QuadTree,
+}
+
 fn startup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -23,30 +29,43 @@ fn startup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    let scale = Vec2::splat(512.);
-    for leaf in QuadTree::new().leafs() {
-        commands.spawn(MaterialMesh2dBundle {
-            mesh: meshes.add(Mesh::from(Quad::default())).into(),
-            transform: Transform::default()
-                .with_translation((scale * leaf.center() + Vec2::splat(-256.)).extend(0.))
-                .with_scale((scale * leaf.size()).extend(0.)),
-            material: materials.add(ColorMaterial::from(asset_server.load("air.png"))),
-            ..default()
-        });
-    }
+    let container = Container { quadtree: QuadTree::new() };
+    let transform = Transform::default()
+        .with_translation(Vec2::splat(-256.).extend(0.))
+        .with_scale(Vec2::splat(512.).extend(0.));
+
+    commands.spawn_empty()
+        .with_children(|parent| {
+            for leaf in container.quadtree.leafs() {
+                let material = materials.add(ColorMaterial::from(asset_server.load("air.png")));
+                let mesh = meshes.add(Mesh::from(Quad::default()));
+                let transform = Transform::default()
+                    .with_translation(leaf.center().extend(0.))
+                    .with_scale(leaf.size().extend(0.));
+                parent.spawn(MaterialMesh2dBundle {
+                    material,
+                    mesh: mesh.into(),
+                    transform,
+                    ..default()
+                });
+            }
+        })
+        .insert(container)
+        .insert(SpatialBundle::from_transform(transform));
 }
 
 fn update(
+    query: Query<(&Container, &Transform)>,
     mut gizmos: Gizmos,
 ) {
-    let scale = Vec2::splat(512.);
-    let translation = Vec2::splat(-256.);
-    for leaf in QuadTree::new().leafs() {
-        gizmos.rect_2d(
-            scale * leaf.center() + translation,
-            0.,
-            scale * leaf.size(),
-            Color::RED,
-        );
+    for (container, transform) in query.iter() {
+        for leaf in container.quadtree.leafs() {
+            gizmos.rect_2d(
+                transform.transform_point(leaf.center().extend(0.)).xy(),
+                0.,
+                transform.scale.xy() * leaf.size(),
+                Color::RED,
+            );
+        }
     }
 }
