@@ -2,7 +2,7 @@ use bevy::prelude::Vec2;
 use quadtree_demo::quadtree::{QuadTree, QuadTreeNode};
 
 #[test]
-fn new_root() {
+fn new_root_no_subdivisions_one_leaf() {
     let quadtree = QuadTree::new();
 
     let actual: Vec<QuadTreeNode> = quadtree.leafs().collect();
@@ -38,4 +38,3 @@ fn id_child() {
     assert_eq!(id.center(), Vec2::new(0.75, 0.75));
     assert_eq!(id.size(), Vec2::new(0.5, 0.5));
 }
-
