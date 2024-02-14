@@ -3,6 +3,7 @@ use bevy::prelude::{App, Assets, AssetServer, Camera2dBundle, Color, Commands, d
 use bevy::prelude::shape::Quad;
 use bevy::sprite::{ColorMaterial, MaterialMesh2dBundle};
 use bevy_rapier2d::prelude::{NoUserData, RapierDebugRenderPlugin, RapierPhysicsPlugin};
+use quadtree_demo::quadtree::QuadTree;
 
 fn main() {
     App::new()
@@ -23,7 +24,7 @@ fn startup(
     commands.spawn(Camera2dBundle::default());
 
     let scale = Vec2::splat(512.);
-    for leaf in QuadTreeNode::new().leafs() {
+    for leaf in QuadTree::new().leafs() {
         commands.spawn(MaterialMesh2dBundle {
             mesh: meshes.add(Mesh::from(Quad::default())).into(),
             transform: Transform::default()
@@ -40,7 +41,7 @@ fn update(
 ) {
     let scale = Vec2::splat(512.);
     let translation = Vec2::splat(-256.);
-    for leaf in QuadTreeNode::new().leafs() {
+    for leaf in QuadTree::new().leafs() {
         gizmos.rect_2d(
             scale * leaf.center() + translation,
             0.,
@@ -48,51 +49,4 @@ fn update(
             Color::RED,
         );
     }
-}
-
-struct QuadTree {
-    vec: Vec<QuadTreeNode>,
-}
-
-impl QuadTree {
-    fn leafs(&self) -> impl Iterator<Item=&QuadTreeNode> {
-        self.vec[1..].into_iter()
-    }
-}
-
-struct QuadTreeNode {
-    center: Vec2,
-    size: Vec2,
-}
-
-impl QuadTreeNode {
-    fn new() -> QuadTree {
-        QuadTree {
-            vec: vec![
-                QuadTreeNode {
-                    center: Vec2::new(0.5, 0.5),
-                    size: Vec2::new(1., 1.),
-                },
-                QuadTreeNode {
-                    center: Vec2::new(0.25, 0.25),
-                    size: Vec2::new(0.5, 0.5),
-                },
-                QuadTreeNode {
-                    center: Vec2::new(0.75, 0.25),
-                    size: Vec2::new(0.5, 0.5),
-                },
-                QuadTreeNode {
-                    center: Vec2::new(0.25, 0.75),
-                    size: Vec2::new(0.5, 0.5),
-                },
-                QuadTreeNode {
-                    center: Vec2::new(0.75, 0.75),
-                    size: Vec2::new(0.5, 0.5),
-                },
-            ]
-        }
-    }
-
-    fn center(&self) -> Vec2 { self.center }
-    fn size(&self) -> Vec2 { self.size }
 }
