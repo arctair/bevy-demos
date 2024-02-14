@@ -48,6 +48,18 @@ impl QuadTreeNode {
     pub fn new(center: Vec2, size: Vec2) -> QuadTreeNode {
         QuadTreeNode { center, size }
     }
+    pub fn id(&self) -> QuadTreeNodeId { QuadTreeNodeId }
+
     pub fn center(&self) -> Vec2 { self.center }
+
     pub fn size(&self) -> Vec2 { self.size }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct QuadTreeNodeId;
+
+impl QuadTreeNodeId {
+    pub fn new(x: i32, y: i32, level: i32) -> QuadTreeNodeId {
+        QuadTreeNodeId
+    }
 }

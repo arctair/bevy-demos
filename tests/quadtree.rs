@@ -1,5 +1,5 @@
 use bevy::prelude::Vec2;
-use quadtree_demo::quadtree::{QuadTree, QuadTreeNode};
+use quadtree_demo::quadtree::{QuadTree, QuadTreeNode, QuadTreeNodeId};
 
 #[test]
 fn new_root() {
@@ -12,6 +12,16 @@ fn new_root() {
             Vec2::new(1.0, 1.0),
         ),
     ];
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn id_root() {
+    let quadtree = QuadTree::new();
+
+    let actual: Option<QuadTreeNodeId> = quadtree.leafs().next().map(QuadTreeNode::id);
+    let expected = Some(QuadTreeNodeId::new(0b0, 0b0, 0));
 
     assert_eq!(actual, expected);
 }
