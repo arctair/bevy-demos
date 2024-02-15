@@ -29,19 +29,19 @@ fn startup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    let container = Container { quadtree: QuadTree::new(()) };
+    let container = Container { quadtree: QuadTree::new(0, |_| ()) };
     let transform = Transform::default()
         .with_translation(Vec2::splat(-256.).extend(0.))
         .with_scale(Vec2::splat(512.).extend(0.));
 
     commands.spawn_empty()
         .with_children(|parent| {
-            for leaf in container.quadtree.leafs() {
+            for leaf in container.quadtree.nodes() {
                 let material = materials.add(ColorMaterial::from(asset_server.load("air.png")));
                 let mesh = meshes.add(Mesh::from(Quad::default()));
                 let transform = Transform::default()
-                    .with_translation(leaf.center().extend(0.))
-                    .with_scale(leaf.size().extend(0.));
+                    .with_translation(leaf.id.center().extend(0.))
+                    .with_scale(leaf.id.size().extend(0.));
                 parent.spawn(MaterialMesh2dBundle {
                     material,
                     mesh: mesh.into(),
@@ -59,11 +59,11 @@ fn update(
     mut gizmos: Gizmos,
 ) {
     for (container, transform) in query.iter() {
-        for leaf in container.quadtree.leafs() {
+        for leaf in container.quadtree.nodes() {
             gizmos.rect_2d(
-                transform.transform_point(leaf.center().extend(0.)).xy(),
+                transform.transform_point(leaf.id.center().extend(0.)).xy(),
                 0.,
-                transform.scale.xy() * leaf.size(),
+                transform.scale.xy() * leaf.id.size(),
                 Color::RED,
             );
         }
