@@ -1,7 +1,7 @@
 use bevy::DefaultPlugins;
 use bevy::prelude::{App, Assets, AssetServer, BuildChildren, Camera2dBundle, Color, Commands, Component, default, Gizmos, ImagePlugin, Mesh, PluginGroup, Query, Res, ResMut, SpatialBundle, Startup, Transform, Update, Vec2, Vec3Swizzles};
 use bevy::prelude::shape::Quad;
-use bevy::sprite::{ColorMaterial, MaterialMesh2dBundle};
+use bevy::sprite::{ColorMaterial, MaterialMesh2dBundle, Mesh2dHandle};
 use bevy_rapier2d::prelude::{NoUserData, RapierDebugRenderPlugin, RapierPhysicsPlugin};
 use quadtree_demo::quadtree::QuadTree;
 
@@ -34,17 +34,17 @@ fn startup(
         .with_translation(Vec2::splat(-256.).extend(0.))
         .with_scale(Vec2::splat(512.).extend(0.));
 
+    let material = materials.add(ColorMaterial::from(asset_server.load("air.png")));
+    let mesh: Mesh2dHandle = meshes.add(Mesh::from(Quad::default())).into();
     commands.spawn_empty()
         .with_children(|parent| {
             for leaf in container.quadtree.nodes() {
-                let material = materials.add(ColorMaterial::from(asset_server.load("air.png")));
-                let mesh = meshes.add(Mesh::from(Quad::default()));
                 let transform = Transform::default()
                     .with_translation(leaf.id.center().extend(0.))
                     .with_scale(leaf.id.size().extend(0.));
                 parent.spawn(MaterialMesh2dBundle {
-                    material,
-                    mesh: mesh.into(),
+                    material: material.clone(),
+                    mesh: mesh.clone(),
                     transform,
                     ..default()
                 });
