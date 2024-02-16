@@ -3,6 +3,7 @@ use bevy::prelude::{App, Assets, AssetServer, BuildChildren, Camera2dBundle, Col
 use bevy::prelude::shape::Quad;
 use bevy::sprite::{ColorMaterial, MaterialMesh2dBundle, Mesh2dHandle};
 use bevy_rapier2d::prelude::{NoUserData, RapierDebugRenderPlugin, RapierPhysicsPlugin};
+use noisy_bevy::simplex_noise_2d;
 use quadtree_demo::quadtree::QuadTree;
 
 fn main() {
@@ -18,7 +19,7 @@ fn main() {
 
 #[derive(Component)]
 struct Container {
-    quadtree: QuadTree<()>,
+    quadtree: QuadTree<bool>,
 }
 
 fn startup(
@@ -29,16 +30,21 @@ fn startup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    let container = Container { quadtree: QuadTree::new(0, |_| ()) };
+    let container = Container { quadtree: QuadTree::new(8, |pos| simplex_noise_2d(4. * pos) > 0.) };
     let transform = Transform::default()
         .with_translation(Vec2::splat(-256.).extend(0.))
         .with_scale(Vec2::splat(512.).extend(0.));
 
-    let material = materials.add(ColorMaterial::from(asset_server.load("air.png")));
+    let material_air = materials.add(ColorMaterial::from(asset_server.load("air.png")));
+    let material_fill = materials.add(ColorMaterial::from(asset_server.load("fill.png")));
     let mesh: Mesh2dHandle = meshes.add(Mesh::from(Quad::default())).into();
     commands.spawn_empty()
         .with_children(|parent| {
             for leaf in container.quadtree.nodes() {
+                let material = match leaf.value {
+                    true => &material_fill,
+                    false => &material_air,
+                };
                 let transform = Transform::default()
                     .with_translation(leaf.id.center().extend(0.))
                     .with_scale(leaf.id.size().extend(0.));

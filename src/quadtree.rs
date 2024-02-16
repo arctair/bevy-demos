@@ -71,7 +71,7 @@ impl<T: Eq> QuadTree<T> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct QuadTreeNode<T> {
     pub id: QuadTreeNodeId,
-    value: T,
+    pub value: T,
 }
 
 impl<T> From<(QuadTreeNodeId, T)> for QuadTreeNode<T> {
