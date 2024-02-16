@@ -20,23 +20,8 @@ fn new_root_no_subdivisions() {
 }
 
 #[test]
-fn one_subdivision_uniform() {
-    let quadtree = QuadTree::new(1, |_| FillType(0));
-
-    let actual: Vec<_> = quadtree.nodes().map(|q| *q).collect();
-    let expected = vec![
-        QuadTreeNode::from((
-            QuadTreeNodeId::new(0b0, 0b0, 0),
-            FillType(0),
-        )),
-    ];
-
-    assert_eq!(actual, expected);
-}
-
-#[test]
-fn one_subdivision_non_uniform() {
-    let quadtree = QuadTree::new(1, |position| {
+fn subdivide_compact() {
+    let quadtree = QuadTree::new(2, |position| {
         let left = position.x < 0.5;
         let down = position.y < 0.5;
         if left ^ down {

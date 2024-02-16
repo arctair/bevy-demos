@@ -20,8 +20,8 @@ impl<T: Eq> QuadTree<T> {
                 nodes.remove(index - 4);
                 nodes.remove(index - 4);
                 nodes.push(QuadTreeNode::from((QuadTreeNodeId::new(
-                    first.id.x,
-                    first.id.y,
+                    first.id.x >> 1,
+                    first.id.y >> 1,
                     first.id.depth - 1,
                 ), first.value)));
                 index = index - 3;
