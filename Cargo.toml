@@ -11,6 +11,14 @@ bevy_rapier2d = "0.24.0"
 noisy_bevy = "0.5.0"
 
 [[example]]
+name = "crazykart"
+path = "examples/crazykart.rs"
+
+[package.metadata.example.crazykart]
+name = "Crazykart Example"
+description = "Crazykart-inspired game demo"
+
+[[example]]
 name = "quadtree"
 path = "examples/quadtree.rs"
 
