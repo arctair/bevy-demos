@@ -4,7 +4,7 @@ use bevy::prelude::shape::Quad;
 use bevy::sprite::{ColorMaterial, MaterialMesh2dBundle, Mesh2dHandle};
 use bevy_rapier2d::prelude::{NoUserData, RapierDebugRenderPlugin, RapierPhysicsPlugin};
 use noisy_bevy::simplex_noise_2d;
-use quadtree_demo::quadtree::QuadTree;
+use bevy_demos::quadtree::QuadTree;
 
 fn main() {
     App::new()
