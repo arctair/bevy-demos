@@ -1,4 +1,6 @@
+use std::time::{Duration, Instant};
 use bevy::prelude::Vec2;
+use noisy_bevy::simplex_noise_2d;
 use quadtree_demo::quadtree::{QuadTree, QuadTreeNode, QuadTreeNodeId};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -37,7 +39,6 @@ fn subdivide_compact() {
             QuadTreeNodeId::new(0b00, 0b00, 1),
             FillType(0),
         )),
-
         QuadTreeNode::from((
             QuadTreeNodeId::new(0b010, 0b000, 2),
             FillType(0),
@@ -54,7 +55,6 @@ fn subdivide_compact() {
             QuadTreeNodeId::new(0b010, 0b001, 2),
             FillType(0),
         )),
-
         QuadTreeNode::from((
             QuadTreeNodeId::new(0b010, 0b010, 2),
             FillType(1),
@@ -71,7 +71,6 @@ fn subdivide_compact() {
             QuadTreeNodeId::new(0b010, 0b011, 2),
             FillType(1),
         )),
-
         QuadTreeNode::from((
             QuadTreeNodeId::new(0b00, 0b01, 1),
             FillType(1),
@@ -105,4 +104,12 @@ fn id_child() {
     let id = QuadTreeNodeId::new(0b01, 0b01, 1);
     assert_eq!(id.center(), Vec2::new(0.75, 0.75));
     assert_eq!(id.size(), Vec2::new(0.5, 0.5));
+}
+
+#[test]
+fn benchmark() {
+    let now = Instant::now();
+    QuadTree::new(8, |pos| simplex_noise_2d(4. * pos) > 0.);
+    let elapsed = now.elapsed();
+    assert!(elapsed < Duration::from_secs(1), "{:?}", elapsed);
 }

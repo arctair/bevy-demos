@@ -1,24 +1,25 @@
-use std::slice::Iter;
+use std::collections::vec_deque::Iter;
+use std::collections::VecDeque;
 use bevy::prelude::Vec2;
 
 #[derive(Debug)]
 pub struct QuadTree<T> {
-    nodes: Vec<QuadTreeNode<T>>,
+    nodes: VecDeque<QuadTreeNode<T>>,
 }
 
 impl<T: Eq> QuadTree<T> {
     pub fn new(subdivisions: usize, from: fn(Vec2) -> T) -> QuadTree<T> {
         let root_id = QuadTreeNodeId::new(0, 0, 0);
         let root = QuadTreeNode::from((root_id, from));
-        let mut nodes = vec![root];
+        let mut nodes = VecDeque::from([root]);
         let mut index = 0;
         loop {
             if index > 3 && {
                 let mut uniform = true;
 
-                let first = &&nodes[index - 4];
+                let first = &nodes[index - 4];
                 for offset in 0..3 {
-                    let node = &&nodes[index + offset - 3];
+                    let node = &nodes[index + offset - 3];
                     if (node.id.x >> 1) != (first.id.x >> 1)
                         || (node.id.y >> 1) != (first.id.y >> 1)
                         || node.value != first.value { uniform = false; }
@@ -27,7 +28,7 @@ impl<T: Eq> QuadTree<T> {
                 uniform
             } {
                 // COMPACT : consolidate uniform regions that formed just before index
-                let first = nodes.remove(index - 4);
+                let Some(first) = nodes.remove(index - 4) else { panic!() };
                 nodes.remove(index - 4);
                 nodes.remove(index - 4);
                 nodes.remove(index - 4);
@@ -49,12 +50,10 @@ impl<T: Eq> QuadTree<T> {
                     let depth = node.id.depth + 1;
 
                     nodes.remove(index);
-                    nodes.append(&mut vec![
-                        QuadTreeNode::from((QuadTreeNodeId::new(left, bottom, depth), from)),
-                        QuadTreeNode::from((QuadTreeNodeId::new(right, bottom, depth), from)),
-                        QuadTreeNode::from((QuadTreeNodeId::new(right, top, depth), from)),
-                        QuadTreeNode::from((QuadTreeNodeId::new(left, top, depth), from)),
-                    ]);
+                    nodes.push_back(QuadTreeNode::from((QuadTreeNodeId::new(left, bottom, depth), from)));
+                    nodes.push_back(QuadTreeNode::from((QuadTreeNodeId::new(right, bottom, depth), from)));
+                    nodes.push_back(QuadTreeNode::from((QuadTreeNodeId::new(right, top, depth), from)));
+                    nodes.push_back(QuadTreeNode::from((QuadTreeNodeId::new(left, top, depth), from)));
                 }
             } else {
                 break;
