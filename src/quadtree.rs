@@ -13,13 +13,25 @@ impl<T: Eq> QuadTree<T> {
         let mut nodes = vec![root];
         let mut index = 0;
         loop {
-            if Self::is_uniform_until(&nodes, index) {
+            if index > 3 && {
+                let mut uniform = true;
+
+                let first = &&nodes[index - 4];
+                for offset in 0..3 {
+                    let node = &&nodes[index + offset - 3];
+                    if (node.id.x >> 1) != (first.id.x >> 1)
+                        || (node.id.y >> 1) != (first.id.y >> 1)
+                        || node.value != first.value { uniform = false; }
+                }
+
+                uniform
+            } {
                 // COMPACT : consolidate uniform regions that formed just before index
                 let first = nodes.remove(index - 4);
                 nodes.remove(index - 4);
                 nodes.remove(index - 4);
                 nodes.remove(index - 4);
-                nodes.push(QuadTreeNode::from((QuadTreeNodeId::new(
+                nodes.insert(index - 4, QuadTreeNode::from((QuadTreeNodeId::new(
                     first.id.x >> 1,
                     first.id.y >> 1,
                     first.id.depth - 1,
@@ -49,22 +61,6 @@ impl<T: Eq> QuadTree<T> {
             }
         }
         QuadTree { nodes }
-    }
-
-    fn is_uniform_until(nodes: &Vec<QuadTreeNode<T>>, index: usize) -> bool {
-        index > 3 && {
-            let mut uniform = true;
-
-            let first = &nodes[index - 4];
-            for offset in 0..3 {
-                let node = &nodes[index + offset - 3];
-                if node.id.depth != first.id.depth || node.value != first.value {
-                    uniform = false;
-                }
-            }
-
-            uniform
-        }
     }
 
     pub fn nodes(&self) -> Iter<'_, QuadTreeNode<T>> {

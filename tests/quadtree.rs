@@ -22,9 +22,9 @@ fn new_root_no_subdivisions() {
 #[test]
 fn subdivide_compact() {
     let quadtree = QuadTree::new(2, |position| {
-        let left = position.x < 0.5;
-        let down = position.y < 0.5;
-        if left ^ down {
+        let left = position.x < 0.75;
+        let bottom = position.y < 0.5;
+        if left ^ bottom {
             FillType(1)
         } else {
             FillType(0)
@@ -37,14 +37,41 @@ fn subdivide_compact() {
             QuadTreeNodeId::new(0b00, 0b00, 1),
             FillType(0),
         )),
+
         QuadTreeNode::from((
-            QuadTreeNodeId::new(0b01, 0b00, 1),
+            QuadTreeNodeId::new(0b010, 0b000, 2),
+            FillType(0),
+        )),
+        QuadTreeNode::from((
+            QuadTreeNodeId::new(0b011, 0b000, 2),
             FillType(1),
         )),
         QuadTreeNode::from((
-            QuadTreeNodeId::new(0b01, 0b01, 1),
+            QuadTreeNodeId::new(0b011, 0b001, 2),
+            FillType(1),
+        )),
+        QuadTreeNode::from((
+            QuadTreeNodeId::new(0b010, 0b001, 2),
             FillType(0),
         )),
+
+        QuadTreeNode::from((
+            QuadTreeNodeId::new(0b010, 0b010, 2),
+            FillType(1),
+        )),
+        QuadTreeNode::from((
+            QuadTreeNodeId::new(0b011, 0b010, 2),
+            FillType(0),
+        )),
+        QuadTreeNode::from((
+            QuadTreeNodeId::new(0b011, 0b011, 2),
+            FillType(0),
+        )),
+        QuadTreeNode::from((
+            QuadTreeNodeId::new(0b010, 0b011, 2),
+            FillType(1),
+        )),
+
         QuadTreeNode::from((
             QuadTreeNodeId::new(0b00, 0b01, 1),
             FillType(1),
